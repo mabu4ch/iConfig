@@ -308,7 +308,7 @@ bool Communicator::openAllInputs() {
   else {
     NSLog(@"MIDIRestart OK");
   }
-
+  
   for (unsigned int i = 0; i < MIDIGetNumberOfSources(); ++i) {
     // open input
     MIDIEndpointRef inEndPoint = MIDIGetSource(static_cast<ItemCount>(i));
@@ -423,6 +423,14 @@ bool Communicator::openAllOutputs() {
     }
   }
 
+  MIDINetworkSession* session = [MIDINetworkSession defaultSession];
+  session.enabled = YES;
+  session.connectionPolicy = MIDINetworkConnectionPolicy_Anyone;
+
+  MIDINetworkHost *host = [MIDINetworkHost hostWithName:@"iCM4-006-01" address:@"192.168.169.95" port:5004];
+  MIDINetworkConnection *connection = [MIDINetworkConnection connectionWithHost:host];
+  [session addConnection:connection];
+  
   MIDIEndpointRef rtpOut =
       [[MIDINetworkSession defaultSession] destinationEndpoint];
   if (rtpOut) {
