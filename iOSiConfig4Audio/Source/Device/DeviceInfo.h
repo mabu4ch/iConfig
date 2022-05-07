@@ -31,7 +31,9 @@ using GeneSysLib::Info;
 using GeneSysLib::MIDIPortRemap;
 using GeneSysLib::MIDIPortFilter;
 
-struct DeviceInfo {
+struct DeviceInfo
+
+{
   DeviceInfo(GeneSysLib::CommPtr comm);
   DeviceInfo(GeneSysLib::CommPtr comm, GeneSysLib::DeviceID deviceID,
              Word transID);
@@ -199,6 +201,8 @@ struct DeviceInfo {
   void timeout();
 
  private:
+  void checkUnanswered();
+  void notifyScreen();
   void registerAllHandlers();
   void unRegisterHandlerAllHandlers();
 
@@ -208,23 +212,17 @@ struct DeviceInfo {
 
   template <typename T>
   void addCommand(const T &command) {
-    //[sendLock lock];
-    sysexMessages.push(command.sysex());
-    //[sendLock unlock];
+    mSysexMessages.push(command.sysex());
   }
 
   template <typename T>
   void addCommand(const T &&command) {
-    //[sendLock lock];
-    sysexMessages.push(command.sysex());
-    //[sendLock unlock];
+    mSysexMessages.push(command.sysex());
   }
 
   template <typename T, typename... Ts>
   void addCommand(Ts... vs) {
-    //[sendLock lock];
-    sysexMessages.push(T(deviceID, transID, vs...).sysex());
-    //[sendLock unlock];
+    mSysexMessages.push(T(deviceID, transID, vs...).sysex());
   }
 
   bool sendNextSysex();
@@ -262,7 +260,8 @@ struct DeviceInfo {
   // Screen performing query
   Screen queryScreen;
 
-  int maxWriteItems;
+  NSTimer* mTimeoutTimer;
+  int mUnansweredMessageCount;
 
   // Current Query
   std::list<GeneSysLib::CmdEnum> currentQuery;
@@ -275,7 +274,10 @@ struct DeviceInfo {
       pendingQueries;
 
   // Pending sysex messages
-  std::queue<Bytes> sysexMessages;
+  using SysexMessages = std::queue<Bytes>;
+  SysexMessages mSysexMessages;
+  
+  SysexMessages::size_type mMaxWriteItems;
 
   // queries attemped
   std::set<GeneSysLib::CmdEnum> attemptedQueries;
