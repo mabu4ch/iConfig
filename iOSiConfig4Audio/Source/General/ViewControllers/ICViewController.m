@@ -339,7 +339,7 @@ using namespace GeneSysLib;
     isLandscape = UIDeviceOrientationIsLandscape(orientation);
 
     [self.provider initializeProviderButtons:self];
-    [self.provider onButtonDown:self index:0];
+    [self.provider onButtonDown:self text:[_deviceInfoButton title]];
 
     [_deviceInfoButton setTintColor:[UIColor redColor]];
   }

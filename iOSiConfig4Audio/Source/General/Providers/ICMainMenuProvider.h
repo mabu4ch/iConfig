@@ -28,7 +28,6 @@ typedef void (^ActionBlock)(ICViewController *);
                                    action:(ActionBlock)action;
 
 - (void)initializeProviderButtons:(ICViewController *)sender;
-- (void)onButtonDown:(ICViewController *)sender index:(NSInteger)buttonIndex;
 - (bool)onButtonDown:(ICViewController *)sender text:(NSString*)buttonText;
 
 @end

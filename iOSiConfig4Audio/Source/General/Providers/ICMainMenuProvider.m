@@ -135,10 +135,9 @@ using namespace MyAlgorithms;
     actionDictionary = tempActionDictionary;
   }
 }
-- (NSArray *)buttonNames {
-  return buttonNames;
-}
 
+// This method handles all button presses by calling the action block for the
+// corresponding button text
 - (bool)onButtonDown:(ICViewController *)sender text:(NSString*)buttonText {
   ButtonActionBlock action = [actionDictionary objectForKey:buttonText];
   if (action != nil)
@@ -157,30 +156,6 @@ using namespace MyAlgorithms;
     return true;
   }
   return false;
-}
-
-// This method handles all button presses by calling the action block for the
-// corresponding button index
-- (void)onButtonDown:(ICViewController *)sender index:(NSInteger)buttonIndex {
-  //  NSObject* action = [actionDictionary objectForKey:([sender ])];
-  
-  // Make sure that the button index is in range
-  if ((buttonIndex >= 0) && (buttonIndex < [actionArray count])) {
-
-    // If there is a query notification handler then remove it so we don't have
-    // unwanted query listeners
-    if (queryNotificationHandler) {
-      [[NSNotificationCenter defaultCenter]
-          removeObserver:queryNotificationHandler];
-      queryNotificationHandler = nil;
-    }
-
-    // Get the corresponding action
-    ButtonActionBlock action = actionArray[buttonIndex];
-
-    // Call the action
-    action(sender);
-  }
 }
 
 // This method returns the number of rows to show
