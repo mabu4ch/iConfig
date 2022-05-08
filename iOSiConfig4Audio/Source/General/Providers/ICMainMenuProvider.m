@@ -68,25 +68,30 @@ using namespace MyAlgorithms;
     // always add the device information menu item
     NSMutableArray *tempButtonNames = [NSMutableArray array];
     NSMutableArray *tempActionArray = [NSMutableArray array];
+    NSMutableDictionary<NSString*, ButtonActionBlock> *tempActionDictionary = [NSMutableDictionary dictionary];
 
     // add a "Device Info" button if there is any device info on the device
     if (commandList.contains(Command::GetInfoList) ||
         commandList.contains(Command::GetInfo)) {
       [tempButtonNames addObject:@"Device Info"];
       [tempActionArray addObject:[self createDeviceInfoAction:commandList]];
+      tempActionDictionary[tempButtonNames.lastObject] = tempActionArray.lastObject;
     }
 
     // add an "Audio Info" (V1) button if supported by the device
     if (commandList.contains(Command::GetAudioInfo)) {
       [tempButtonNames addObject:@"Audio Info"];
       [tempActionArray addObject:[self createAudioInfoActionV1:commandList]];
-    } else if ((commandList.contains(Command::GetAudioGlobalParm)) &&
+      tempActionDictionary[tempButtonNames.lastObject] = tempActionArray.lastObject;
+    }
+    else if ((commandList.contains(Command::GetAudioGlobalParm)) &&
                (commandList.contains(Command::GetAudioPortParm)) &&
                (commandList.contains(Command::GetAudioDeviceParm)) &&
                (commandList.contains(Command::GetAudioClockParm))) {
       // add an "Audio Info" (V2) button if supported by the device
       [tempButtonNames addObject:@"Audio Info"];
       [tempActionArray addObject:[self createAudioInfoActionV2:commandList]];
+      tempActionDictionary[tempButtonNames.lastObject] = tempActionArray.lastObject;
     }
 
     // add an "Audio Patchbay" (V1) button if supported by the device
@@ -94,46 +99,49 @@ using namespace MyAlgorithms;
         commandList.contains(Command::GetAudioPortPatchbay)) {
       [tempButtonNames addObject:@"Audio Patchbay"];
       [tempActionArray addObject:[self createAudioPatchbayV1Action]];
+      tempActionDictionary[tempButtonNames.lastObject] = tempActionArray.lastObject;
     }
 
     if ((commandList.contains(Command::GetAudioGlobalParm)) &&
         (commandList.contains(Command::GetAudioPatchbayParm))) {
       [tempButtonNames addObject:@"Audio Patchbay"];
       [tempActionArray addObject:[self createAudioPatchbayV2Action]];
+      tempActionDictionary[tempButtonNames.lastObject] = tempActionArray.lastObject;
     }
 
     // add a "Mixer" button if there is any Mixer Parm on the device
     if (commandList.contains(Command::GetMixerParm)) {
       [tempButtonNames addObject:@"Audio Mixer"];
       [tempActionArray addObject:[self createMixerAction]];
+      tempActionDictionary[tempButtonNames.lastObject] = tempActionArray.lastObject;
     }
 
     // add a "MIDI Info" button if there is any MIDI info on the device
     if (commandList.contains(Command::GetMIDIInfo)) {
       [tempButtonNames addObject:@"MIDI Info"];
       [tempActionArray addObject:[self createMIDIInfoAction:commandList]];
+      tempActionDictionary[tempButtonNames.lastObject] = tempActionArray.lastObject;
     }
 
     // add a "MIDI Info" button if there is any MIDI info on the device
     if (commandList.contains(Command::GetMIDIPortRoute)) {
       [tempButtonNames addObject:@"MIDI Patchbay"];
       [tempActionArray addObject:[self createMIDIPatchbayAction]];
+      tempActionDictionary[tempButtonNames.lastObject] = tempActionArray.lastObject;
     }
 
     buttonNames = tempButtonNames;
     actionArray = tempActionArray;
+    actionDictionary = tempActionDictionary;
   }
-}
-- (NSArray *)buttonNames {
-  return buttonNames;
 }
 
 // This method handles all button presses by calling the action block for the
-// corresponding button index
-- (void)onButtonDown:(ICViewController *)sender index:(NSInteger)buttonIndex {
-  // Make sure that the button index is in range
-  if ((buttonIndex >= 0) && (buttonIndex < [actionArray count])) {
-
+// corresponding button text
+- (bool)onButtonDown:(ICViewController *)sender text:(NSString*)buttonText {
+  ButtonActionBlock action = [actionDictionary objectForKey:buttonText];
+  if (action != nil)
+  {
     // If there is a query notification handler then remove it so we don't have
     // unwanted query listeners
     if (queryNotificationHandler) {
@@ -142,12 +150,12 @@ using namespace MyAlgorithms;
       queryNotificationHandler = nil;
     }
 
-    // Get the corresponding action
-    ButtonActionBlock action = actionArray[buttonIndex];
-
     // Call the action
     action(sender);
+    
+    return true;
   }
+  return false;
 }
 
 // This method returns the number of rows to show
