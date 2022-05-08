@@ -162,7 +162,8 @@ using namespace GeneSysLib;
   if (selectedDevice) {
     if ( selectedDevice->getDeviceID().pid() == DevicePID::iConnect2Audio ||
         selectedDevice->getDeviceID().pid() == DevicePID::iConnect4Audio ||
-        selectedDevice->getDeviceID().pid() == DevicePID::iConnect4Plus) {
+        selectedDevice->getDeviceID().pid() == DevicePID::iConnect4Plus ||
+        selectedDevice->getDeviceID().pid() == DevicePID::iConnect2Plus) {
         const auto &transID = selectedDevice->getTransID();
         self.comm->setCurrentOutput(transID);
 
