@@ -17,6 +17,7 @@ typedef void (^ActionBlock)(ICViewController *);
 @interface ICMainMenuProvider : NSObject  {
   NSArray *buttonNames;
   NSArray *actionArray;
+  NSDictionary<NSString*, ButtonActionBlock> *actionDictionary;
   id queryNotificationHandler;
 }
 
@@ -28,5 +29,6 @@ typedef void (^ActionBlock)(ICViewController *);
 
 - (void)initializeProviderButtons:(ICViewController *)sender;
 - (void)onButtonDown:(ICViewController *)sender index:(NSInteger)buttonIndex;
+- (bool)onButtonDown:(ICViewController *)sender text:(NSString*)buttonText;
 
 @end

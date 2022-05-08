@@ -139,6 +139,7 @@ bool DeviceInfo::startQuery(Screen screen, const list<CmdEnum>& query)
   if ((currentQuery.empty()) && sysexEmpty)
   {
     mUnansweredMessageCount = 0;
+    NSLog(@"Start Query, reset Unanswered: %i", mUnansweredMessageCount);
     attemptedQueries.clear();
     queriedItems.clear();
 
@@ -479,7 +480,7 @@ bool DeviceInfo::sendNextSysex() {
     mSysexMessages.pop();
     
     ++mUnansweredMessageCount;
-    //NSLog(@"Unanswered %i", mUnansweredMessageCount);
+    NSLog(@"Unanswered %i", mUnansweredMessageCount);
 
     comm->sendSysex(message);
 

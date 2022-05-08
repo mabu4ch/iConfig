@@ -102,38 +102,56 @@ using namespace GeneSysLib;
 
 - (IBAction)onDeviceInfoButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_deviceInfoButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:0];
+  NSString* action = [_deviceInfoButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_deviceInfoButton setTintColor:[UIColor redColor]];
+  }
 }
 
 - (IBAction)onAudioInfoButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_audioInfoButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:1];
+  NSString* action = [_audioInfoButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_audioInfoButton setTintColor:[UIColor redColor]];
+  }
 }
 
 - (IBAction)onAudioPatchbayButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_audioPatchbayButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:2];
+  NSString* action = [_audioPatchbayButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_audioPatchbayButton setTintColor:[UIColor redColor]];
+  }
 }
 
 - (IBAction)onAudioMixerButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_audioMixerButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:3];
+  NSString* action = [_audioMixerButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_audioMixerButton setTintColor:[UIColor redColor]];
+  }
 }
 
 - (IBAction)onMidiInfoButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_midiInfoButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:4];
+  NSString* action = [_midiInfoButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_midiInfoButton setTintColor:[UIColor redColor]];
+  }
 }
 
 - (IBAction)onMidiPatchbayButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_midiPatchbayButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:5];
+  NSString* action = [_midiPatchbayButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_midiPatchbayButton setTintColor:[UIColor redColor]];
+  }
 }
 
 + (UIImage *)imageFromColor:(UIColor *)color {
