@@ -16,7 +16,7 @@
 - (void)viewDidLoad {
   [super viewDidLoad];
 
-  itemsArray = [[NSMutableArray alloc] initWithObjects:@"Device Functions", @"Help", @"Disconnect", nil];
+  itemsArray = [[NSMutableArray alloc] initWithObjects:@"Device Functions", @"Configuration", @"Help", @"Disconnect", nil];
 
   [_menuTableView setDataSource:self];
   [_menuTableView setDelegate:self];
@@ -46,10 +46,15 @@
       break;
     case 1:
       if (self->ICvc) {
-        [self->ICvc helpButtonPressed:nil];
+        [self->ICvc configurationFunctionsPressed];
       }
       break;
     case 2:
+      if (self->ICvc) {
+        [self->ICvc helpButtonPressed:nil];
+      }
+      break;
+    case 3:
       if (self->ICvc) {
         [self->ICvc onSelectDevice:nil];
       }
