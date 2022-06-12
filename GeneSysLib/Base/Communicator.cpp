@@ -148,6 +148,14 @@ Communicator::Communicator()
       currentOutPort() {
 #ifdef __IOS__
   client = (MIDIClientRef)NULL;
+        
+  MIDINetworkSession* session = [MIDINetworkSession defaultSession];
+  session.enabled = YES;
+  session.connectionPolicy = MIDINetworkConnectionPolicy_Anyone;
+
+  MIDINetworkHost *host = [MIDINetworkHost hostWithName:@"iCM4-006-01" address:@"192.168.169.95" port:5004];
+  MIDINetworkConnection *connection = [MIDINetworkConnection connectionWithHost:host];
+  [session addConnection:connection];
 
   MIDIClientCreate(CFSTR("IC Client"), &ICMIDINotifyProc, nullptr, &client);
 
