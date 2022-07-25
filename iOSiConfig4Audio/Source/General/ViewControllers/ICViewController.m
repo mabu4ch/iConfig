@@ -102,38 +102,56 @@ using namespace GeneSysLib;
 
 - (IBAction)onDeviceInfoButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_deviceInfoButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:0];
+  NSString* action = [_deviceInfoButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_deviceInfoButton setTintColor:[UIColor redColor]];
+  }
 }
 
 - (IBAction)onAudioInfoButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_audioInfoButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:1];
+  NSString* action = [_audioInfoButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_audioInfoButton setTintColor:[UIColor redColor]];
+  }
 }
 
 - (IBAction)onAudioPatchbayButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_audioPatchbayButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:2];
+  NSString* action = [_audioPatchbayButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_audioPatchbayButton setTintColor:[UIColor redColor]];
+  }
 }
 
 - (IBAction)onAudioMixerButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_audioMixerButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:3];
+  NSString* action = [_audioMixerButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_audioMixerButton setTintColor:[UIColor redColor]];
+  }
 }
 
 - (IBAction)onMidiInfoButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_midiInfoButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:4];
+  NSString* action = [_midiInfoButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_midiInfoButton setTintColor:[UIColor redColor]];
+  }
 }
 
 - (IBAction)onMidiPatchbayButtonTouched:(id)sender {
   [self resetBarButtonTints];
-  [_midiPatchbayButton setTintColor:[UIColor redColor]];
-  [self.provider onButtonDown:self index:5];
+  NSString* action = [_midiPatchbayButton title];
+  if ([self.provider onButtonDown:self text: action])
+  {
+    [_midiPatchbayButton setTintColor:[UIColor redColor]];
+  }
 }
 
 + (UIImage *)imageFromColor:(UIColor *)color {
@@ -321,7 +339,7 @@ using namespace GeneSysLib;
     isLandscape = UIDeviceOrientationIsLandscape(orientation);
 
     [self.provider initializeProviderButtons:self];
-    [self.provider onButtonDown:self index:0];
+    [self.provider onButtonDown:self text:[_deviceInfoButton title]];
 
     [_deviceInfoButton setTintColor:[UIColor redColor]];
   }
@@ -1179,7 +1197,14 @@ using namespace GeneSysLib;
   } else if (pid == DevicePID::iConnect4Plus) {
     supportedExtensionRegEx = @"\\.icm4$";
     extension = @".icm4";
+  } else if (pid == DevicePID::iConnect2Audio) {
+    supportedExtensionRegEx = @"\\.ica2$";
+    extension = @".ica2";
+  } else if (pid == DevicePID::iConnect4Audio) {
+    supportedExtensionRegEx = @"\\.ica4$";
+    extension = @".ica4";
   }
+
 
   if ((supportedExtensionRegEx) &&
       ([path rangeOfString:supportedExtensionRegEx
@@ -1235,7 +1260,6 @@ using namespace GeneSysLib;
 }
 
 - (void)onTimeout {
-  GeneSysLib::Communicator::pendingSend = false;
   NSLog(@"timer timedout!!");
   if (updateTimer) {
     [updateTimer invalidate];
@@ -1247,10 +1271,6 @@ using namespace GeneSysLib;
   if (![communicationErrorAlert isVisible]) {
     [communicationErrorAlert show];
   }
-
-  [Communicator::finishLock lock];
-  [Communicator::finishLock broadcast];
-  [Communicator::finishLock unlock];
 }
 
 - (void)requestReset:(NSNotification *)notification {
@@ -1260,10 +1280,6 @@ using namespace GeneSysLib;
   [[NSNotificationCenter defaultCenter] removeObserver:self
                                                   name:kCommunicationTimeout
                                                 object:nil];
-
-  [Communicator::finishLock lock];
-  [Communicator::finishLock broadcast];
-  [Communicator::finishLock unlock];
 
   // 4.0 seconds is based on testing. It may need to be increased.
   runOnMainAfter(7.2, ^{

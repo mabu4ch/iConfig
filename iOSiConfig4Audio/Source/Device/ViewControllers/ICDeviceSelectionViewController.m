@@ -161,7 +161,9 @@ using namespace GeneSysLib;
 
   if (selectedDevice) {
     if ( selectedDevice->getDeviceID().pid() == DevicePID::iConnect2Audio ||
-        selectedDevice->getDeviceID().pid() == DevicePID::iConnect4Audio) {
+        selectedDevice->getDeviceID().pid() == DevicePID::iConnect4Audio ||
+        selectedDevice->getDeviceID().pid() == DevicePID::iConnect4Plus ||
+        selectedDevice->getDeviceID().pid() == DevicePID::iConnect2Plus) {
         const auto &transID = selectedDevice->getTransID();
         self.comm->setCurrentOutput(transID);
 
@@ -444,7 +446,6 @@ clickedButtonAtIndex:(NSInteger)buttonIndex {
 - (void)searchComplete {
   [self stopSearchTimer];
 
-  self.comm->stopTimer();
   if (inHandler) {
     [self startSearchTimer];
     return;
@@ -461,8 +462,6 @@ clickedButtonAtIndex:(NSInteger)buttonIndex {
 
   [self.searchingView removeFromSuperview];
   [self.myTableView reloadData];
-
-  Communicator::cancelAllTimers();
 }
 
 - (void)sendNextSysex {
@@ -514,10 +513,6 @@ clickedButtonAtIndex:(NSInteger)buttonIndex {
     [searchTimer invalidate];
     searchTimer = nil;
   }
-  
-  [Communicator::finishLock lock];
-  [Communicator::finishLock broadcast];
-  [Communicator::finishLock unlock];
 }
 
 - (void)startInfoTimer {

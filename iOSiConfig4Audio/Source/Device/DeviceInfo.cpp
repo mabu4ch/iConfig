@@ -81,13 +81,11 @@ DeviceInfo::DeviceInfo(CommPtr _comm)
       queryScreen(UnknownScreen),
       currentQuery(),
       pendingQueries(),
-      comm(_comm) {
-        registerAllHandlers();
-        sendLock = [[NSLock alloc] init];
-        attemptedQueriesLock = [[NSLock alloc] init];
-        currentQueriesLock = [[NSLock alloc] init];
-        queriedItemsLock = [[NSLock alloc] init];
-        pendingQueriesLock = [[NSLock alloc] init];
+      comm(_comm),
+      mUnansweredMessageCount(0),
+      mTimeoutTimer(nil)
+{
+  registerAllHandlers();
 }
 
 DeviceInfo::DeviceInfo(CommPtr _comm, DeviceID _deviceID, Word _transID)
@@ -98,25 +96,29 @@ DeviceInfo::DeviceInfo(CommPtr _comm, DeviceID _deviceID, Word _transID)
       queryScreen(UnknownScreen),
       currentQuery(),
       pendingQueries(),
-      comm(_comm) {
-        registerAllHandlers();
-        sendLock = [[NSLock alloc] init];
-        attemptedQueriesLock = [[NSLock alloc] init];
-        currentQueriesLock = [[NSLock alloc] init];
-        queriedItemsLock = [[NSLock alloc] init];
-        pendingQueriesLock = [[NSLock alloc] init];
+      comm(_comm),
+      mUnansweredMessageCount(0),
+      mTimeoutTimer(nil)
+{
+  registerAllHandlers();
 }
 
-DeviceInfo::~DeviceInfo() { closeDevice(); }
+DeviceInfo::~DeviceInfo()
+{
+  closeDevice();
+}
 
-void DeviceInfo::closeDevice() {
-  //NSLog(@"lock1");
-  [sendLock lock];
-  while (!sysexMessages.empty()) {
-    sysexMessages.pop();
+void DeviceInfo::closeDevice()
+{
+  if (mTimeoutTimer != nil)
+  {
+    [mTimeoutTimer invalidate];
+    mTimeoutTimer = nil;
   }
-  //NSLog(@"lock2");
-  [sendLock unlock];
+  while (!mSysexMessages.empty())
+  {
+    mSysexMessages.pop();
+  }
   unRegisterHandlerAllHandlers();
 }
 
@@ -128,79 +130,46 @@ SerialNumber DeviceInfo::getSerialNumber() { return deviceID.serialNumber(); }
 
 Word DeviceInfo::getTransID() { return transID; }
 
-bool DeviceInfo::startQuery(Screen screen, const list<CmdEnum>& query) {
+bool DeviceInfo::startQuery(Screen screen, const list<CmdEnum>& query)
+{
   bool result = false;
 
-  bool sysexEmpty;
+  bool sysexEmpty = mSysexMessages.empty();
 
-  //NSLog(@"3Thread: %@", [NSThread currentThread]);
-  //NSLog(@"lock3");
-  [sendLock lock];
-  sysexEmpty = sysexMessages.empty();
-  [sendLock unlock];
-  //NSLog(@"lock4");
-
-  [sendLock lock];
-  [currentQueriesLock lock];
-  if ((currentQuery.empty()) && sysexEmpty) {
-    //NSLog(@"lock5");
-    [attemptedQueriesLock lock];
+  if ((currentQuery.empty()) && sysexEmpty)
+  {
+    mUnansweredMessageCount = 0;
+    NSLog(@"Start Query, reset Unanswered: %i", mUnansweredMessageCount);
     attemptedQueries.clear();
-    [attemptedQueriesLock unlock];
-    //NSLog(@"lock6");
-
-    //NSLog(@"lock7");
-    [queriedItemsLock lock];
     queriedItems.clear();
-    [queriedItemsLock unlock];
-    //NSLog(@"lock8");
 
     queryScreen = screen;
 
     // Queries before
     currentQuery = query;
 
-    [currentQueriesLock unlock];
-    [sendLock unlock];
     result = sendNextSysex();
-  } else {
-    [currentQueriesLock unlock];
-    [sendLock unlock];
-    //NSLog(@"lock9");
-    [pendingQueriesLock lock];
-
+  }
+  else
+  {
     pendingQueries.push(boost::make_tuple(screen, query));
-    [pendingQueriesLock unlock];
-    //NSLog(@"lock10");
   }
 
   return result;
 }
 
 void DeviceInfo::clearQueries() {
-  [sendLock lock];
-  while (!sysexMessages.empty()) {
-    sysexMessages.pop();
+  while (!mSysexMessages.empty()) {
+    mSysexMessages.pop();
   }
-  [sendLock unlock];
-
-  [currentQueriesLock lock];
   currentQuery.clear();
-  [currentQueriesLock unlock];
 
-  [pendingQueriesLock lock];
   while (!pendingQueries.empty()) {
     pendingQueries.pop();
   }
-  [pendingQueriesLock unlock];
 
-  [queriedItemsLock lock];
   queriedItems.clear();
-  [queriedItemsLock unlock];
-
-  [attemptedQueriesLock lock];
   attemptedQueries.clear();
-  [attemptedQueriesLock unlock];
 
   queryScreen = UnknownScreen;
 }
@@ -228,9 +197,8 @@ bool DeviceInfo::rereadMeters() {
   query.push_back(Command::RetAudioPortMeterValue);
   query.push_back(Command::RetMixerMeterValue);
 
-  dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-    startQuery(Screen::RereadMeters, query);
-  });
+  startQuery(Screen::RereadMeters, query);
+
   return true;
 }
 
@@ -318,6 +286,78 @@ size_t DeviceInfo::audioPortInfoCount() const {
   return typeCount<AudioPortInfo>();
 }
 
+void DeviceInfo::checkUnanswered()
+{
+  NSLog(@"Check Unanswered %i", mUnansweredMessageCount);
+  if (mUnansweredMessageCount > 0)
+  {
+    timeout();
+  }
+  else
+  {
+    NSLog(@"All Fine");
+  }
+}
+
+void DeviceInfo::notifyScreen()
+{
+  NSLog(@"Notify screen");
+  // check to see that a valid screen us waiting for a response
+  if (queryScreen != Screen::UnknownScreen)
+  {
+    // Remove doubles form list of queried items
+    {
+      // create a temporary set of commands
+      set<CmdEnum> tempSet;
+
+      // copy all quried items to that set
+      tempSet.insert(queriedItems.begin(), queriedItems.end());
+
+      // clear the list of quried items
+      queriedItems.clear();
+
+      // add items for the temp set to the quried items
+      queriedItems.insert(queriedItems.begin(), tempSet.begin(),
+                          tempSet.end());
+    }
+
+    // create an objective C object to store the results of the query
+    NSDictionary* result;
+    // create an Objective C object to store the list of queried items
+    {
+      NSMutableArray* const nsQuery = [NSMutableArray array];
+
+      // loop through all queried items
+      for (auto iter = queriedItems.begin(); iter != queriedItems.end(); ++iter)
+      {
+        // add an Object C object containing the queried object to the
+        // ObjC list of queried objects
+        [nsQuery addObject:[NSNumber numberWithInt:*iter]];
+      }
+
+      // create a dictionary of results
+      result = @{
+        // add the calling screen to the result
+        @"screen" : @((int)queryScreen),
+
+        // add the results to the results
+        @"query" : nsQuery
+      };
+    }
+
+    // post the query complete notification on the main thread
+    runOnMain(^{
+        [[NSNotificationCenter defaultCenter]
+            postNotificationName:@"queryCompleted"
+                          object:nil
+                        userInfo:result];});
+
+    // set the screen to the unknown screen (this prevents duplicate
+    // calls to query completed)
+    queryScreen = Screen::UnknownScreen;
+  }
+}
+
 void DeviceInfo::registerAllHandlers() {
   auto addHandler = [this](CmdEnum command, Handler handler) {
     this->registeredHandlerIDs[command] =
@@ -377,61 +417,28 @@ void DeviceInfo::unRegisterHandlerAllHandlers() {
   for (const auto& handler : registeredHandlerIDs) {
     comm->unRegisterHandler(handler.first, handler.second);
   }
-  //NSLog(@"lock11");
-  [sendLock lock];
-
-  while (!sysexMessages.empty()) {
-    sysexMessages.pop();
+  while (!mSysexMessages.empty()) {
+    mSysexMessages.pop();
   }
-  [sendLock unlock];
-  //NSLog(@"lock12");
-
 }
 
 void DeviceInfo::timeout() {
   //NSLog(@"Device Info timeout");
   comm->unRegisterExclusiveHandler();
-  //NSLog(@"lock13");
-  [sendLock lock];
 
-  while (!sysexMessages.empty()) {
-    sysexMessages.pop();
+  while (!mSysexMessages.empty()) {
+    mSysexMessages.pop();
   }
-  [sendLock unlock];
-  //NSLog(@"lock14");
-
-
-  //NSLog(@"lock15");
-  [currentQueriesLock lock];
 
   currentQuery.clear();
-  [currentQueriesLock unlock];
-  //NSLog(@"lock16");
-
-
-  //NSLog(@"lock17");
-  [pendingQueriesLock lock];
 
   while (!pendingQueries.empty()) {
     pendingQueries.pop();
   }
-  [pendingQueriesLock unlock];
-  //NSLog(@"lock18");
-
-
-  //NSLog(@"lock19");
-  [queriedItemsLock lock];
 
   queriedItems.clear();
-  [queriedItemsLock unlock];
-  //NSLog(@"lock20");
-
-  //NSLog(@"lock21");
-  [attemptedQueriesLock lock];
 
   attemptedQueries.clear();
-  [attemptedQueriesLock unlock];
-  //NSLog(@"lock22");
 
   queryScreen = UnknownScreen;
 
@@ -443,20 +450,11 @@ void DeviceInfo::timeout() {
 }
 
 void DeviceInfo::addCommand(const Bytes& sysex) {
-  //NSLog(@"lock23");
-  [sendLock lock];
-
-  sysexMessages.push(sysex);
-  [sendLock unlock];
-  //NSLog(@"lock24");
+  mSysexMessages.push(sysex);
 }
 
 void DeviceInfo::addCommand(const Bytes&& sysex) {
-  //NSLog(@"lock25");
-  [sendLock lock];
-  sysexMessages.push(sysex);
-  [sendLock unlock];
-  //NSLog(@"lock26");
+  mSysexMessages.push(sysex);
 }
 
 bool DeviceInfo::containsCommandDataType(CmdEnum command) const {
@@ -473,94 +471,72 @@ bool DeviceInfo::sendNextSysex() {
 
   //printf("0: sysexMessages.size(): %d, currentQuery.size(): %d (%d)\n", sysexMessages.size(), currentQuery.size(), QThread::currentThreadId());
 
-  //NSLog(@"27Thread: %@", [NSThread currentThread]);
-  bool send = !(sysexMessages.empty());
+  bool isPendingSysexMessage = !(mSysexMessages.empty());
 
-  if (send) {
+  if (isPendingSysexMessage) {
     // send the next sysex message
     //printf("presend\n");
-    //NSLog(@"lock27");
-    [sendLock lock];
-    Bytes front = sysexMessages.front();
-    sysexMessages.pop();
-    [sendLock unlock];
-    //NSLog(@"lock28");
+    Bytes message = mSysexMessages.front();
+    mSysexMessages.pop();
+    
+    ++mUnansweredMessageCount;
+    NSLog(@"Unanswered %i", mUnansweredMessageCount);
 
-    comm->sendSysex(front);
+    comm->sendSysex(message);
 
     //printf("postsend\n");
 
     // remove the sysex message from the message queue
   }
-
-
-  if (send) {
-    //if (sysexMessages.empty())
-    return true;
-    //else
-    //  return sendNextSysex();
-  }
-
-  //printf("1: sysexMessages.size(): %d, currentQuery.size(): %d (%d)\n", sysexMessages.size(), currentQuery.size(), QThread::currentThreadId());
-
-  if (!send) {
-    //NSLog(@"lock29");
-    [currentQueriesLock lock];
+  else
+  {
+    if (mTimeoutTimer != nil)
+    {
+      [mTimeoutTimer invalidate];
+      mTimeoutTimer = nil;
+    }
+    NSLog(@"Create Timeout Timer");
+    mTimeoutTimer = [NSTimer scheduledTimerWithTimeInterval:10.0
+                                                    repeats:NO
+                                                      block:^(NSTimer*) { checkUnanswered(); mTimeoutTimer = nil;} ];
 
     // get the front iterator for the current query
     auto q = currentQuery.begin();
 
     // loop through the current query
-    while (q != currentQuery.end()) {
+    while (q != currentQuery.end())
+    {
+      // get a list of the dependencies for the current query
       auto D = commandDependancy(*q);
 
       bool metDependancies = true;
       for (auto d : D) {
         if (!containsCommandDataType(d)) {
-          //NSLog(@"lock30");
-          [attemptedQueriesLock lock];
-
           if (!MyAlgorithms::contains(attemptedQueries, d)) {
             metDependancies = false;
           }
-          [attemptedQueriesLock unlock];
-          //NSLog(@"lock31");
-
         }
       }
 
       // if all dependancies are met
-      if ((D.empty()) || metDependancies) {
-
+      if ((D.empty()) || metDependancies)
+      {
         // add the query sysex to the sysex buffer
         addQuerySysex(*q);
 
-        // add query to the attempted queries
-        //NSLog(@"lock32");
-        [attemptedQueriesLock lock];
-
         attemptedQueries.insert(*q);
-        [attemptedQueriesLock unlock];
-        //NSLog(@"lock33");
 
         // remove query from list of pending commands and increment pointer
-
-        //printf("2: currentQuery.size(): %d, q: %d (%d)\n", currentQuery.size(), q, QThread::currentThreadId());
         q = currentQuery.erase(q);
-        [currentQueriesLock unlock];
-        //NSLog(@"lock34");
 
-        //printf("438\n");
         return sendNextSysex();
-      } else {
+      }
+      else
+      {
         // dependencies not met
-        // foreach dependencies
         for (auto d : D) {
           // if dependancy isn't in current query and dependancies is not
           // alrealy being queried and dependancies has not been attempted
-          //NSLog(@"lock35");
-          [attemptedQueriesLock lock];
-
           if ((!MyAlgorithms::contains(currentQuery, d)) &&
               (!containsCommandDataType(d)) &&
               (!MyAlgorithms::contains(attemptedQueries, d))) {
@@ -571,336 +547,59 @@ bool DeviceInfo::sendNextSysex() {
             currentQuery.remove(d);
             currentQuery.push_front(d);
           }
-          [attemptedQueriesLock unlock];
-          //NSLog(@"lock36");
-
         }
 
         q = currentQuery.begin();
       }
     }
+    
+    isPendingSysexMessage = !mSysexMessages.empty();
 
-    [currentQueriesLock unlock];
-    //NSLog(@"lock37");
-
-
-    // if there are not pending sysex messages
-    if (sysexMessages.empty()) {
-      // we are done with the current query
-
-      if (queryScreen != Screen::UnknownScreen) {
-        // Remove doubles form list of queried items
-        {
-          // create a temporary set of commands
-          set<CmdEnum> tempSet;
-
-          //NSLog(@"lock38");
-          [queriedItemsLock lock];
-
-          // copy all quried items to that set
-          tempSet.insert(queriedItems.begin(), queriedItems.end());
-
-          // clear the list of quried items
-          queriedItems.clear();
-
-          // add items for the temp set to the quried items
-          queriedItems.insert(queriedItems.begin(), tempSet.begin(),
-                              tempSet.end());
-          [queriedItemsLock unlock];
-          //NSLog(@"lock39");
-
-        }
-
-        // create an objective C object to store the results of the query
-        NSDictionary* result;
-
-        // create an Objective C object to store the list of queried items
-        {
-          NSMutableArray* const nsQuery = [NSMutableArray array];
-
-          // loop through all queried items
-          for (auto iter = queriedItems.begin(); iter != queriedItems.end();
-               ++iter) {
-            // add an Object C object containing the queried object to the
-            // ObjC list of queried objects
-            [nsQuery addObject:[NSNumber numberWithInt:*iter]];
-          }
-
-          // create a dictionary of results
-          result = @{
-            // add the calling screen to the result
-            @"screen" : @((int)queryScreen),
-
-            // add the results to the results
-            @"query" : nsQuery
-          };
-        }
-
-        [Communicator::finishLock lock];
-        while (!Communicator::timersEmpty()) {
-          NSLog(@"waiting in sendNextSysex");
-          [Communicator::finishLock wait];
-          NSLog(@"wait done. timers empty?");
-        }
-        [Communicator::finishLock unlock];
-
-        // post the query complete notification on the main thread
-        runOnMain(^{
-          [[NSNotificationCenter defaultCenter]
-           postNotificationName:@"queryCompleted"
-           object:nil
-           userInfo:result];
-        });
-
-        //NSLog(@"lock40");
-        [currentQueriesLock lock];
-
-        currentQuery.clear();
-        [currentQueriesLock unlock];
-        //NSLog(@"lock41");
-        queryScreen = Screen::UnknownScreen;
-      }
-
+    // if there are no pending sysex messages
+    if (!isPendingSysexMessage)
+    {
       // if there are pending queries then deal with them now
       if (!pendingQueries.empty()) {
-        //NSLog(@"lock42");
-        [pendingQueriesLock lock];
 
         // get next query
         auto nextQuery = pendingQueries.front();
 
         // remove the next query from the pending list
         pendingQueries.pop();
-        [pendingQueriesLock unlock];
-        //NSLog(@"lock43");
 
 
         // set the query Screen
         queryScreen = boost::get<0>(nextQuery);
 
         // set the currentQuery to the next query
-        //NSLog(@"lock44");
-        [currentQueriesLock lock];
         currentQuery = boost::get<1>(nextQuery);
-        [currentQueriesLock unlock];
-        //NSLog(@"lock45");
 
 
         // clear the list of queried items
-        //NSLog(@"lock46");
-        [queriedItemsLock lock];
         queriedItems.clear();
-        [queriedItemsLock unlock];
-        //NSLog(@"lock47");
 
         // start the next query
         //printf("504\n");
-        send = sendNextSysex();
+        isPendingSysexMessage = sendNextSysex();
       }
-    } else {
+    }
+    else
+    {
       // there are pending sysex messages
-      //NSLog(@"lock48");
-      [sendLock lock];
       // send the next sysex message
-      comm->sendSysex(sysexMessages.front());
+      comm->sendSysex(mSysexMessages.front());
       // remove the sent sysex message from the queue
-      sysexMessages.pop();
-      [sendLock unlock];
-      //NSLog(@"lock49");
+      mSysexMessages.pop();
 
       // we have sent a sysex message
-      send = true;
+      isPendingSysexMessage = true;
       
       //emit queryStarted();
     }
   }
   
-  return send;
+  return isPendingSysexMessage;
 }
-
-
-//bool DeviceInfo::sendNextSysex() {
-//  // is the sysex message queue empty?
-//  bool isPendingSysexMessage;
-//
-//  [sendLock lock];
-//  isPendingSysexMessage = !(sysexMessages.empty());
-//  [sendLock unlock];
-//
-//  if (isPendingSysexMessage) {
-//    // Create a variable to hold the next sysex message
-//    Bytes message;
-//
-//    // Lock the pending sysex queue lock
-//    [sendLock lock];
-//
-//    // get the next pending sysex message
-//    message = sysexMessages.front();
-//
-//    // remove the pending sysex message from the queue
-//    sysexMessages.pop();
-//
-//    // unlock the pending sysex queue lock
-//    [sendLock unlock];
-//
-//    // send the next sysex message
-//    comm->sendSysex(message);
-//  } else {
-//    // get the front iterator for the current query
-//    auto q = currentQuery.begin();
-//
-//    // loop through the current query
-//    while (q != currentQuery.end()) {
-//      // get a list of the dependencies for the current query
-//      auto D = commandDependancy(*q);
-//
-//      // if all dependancies are met
-//      if ((D.empty()) ||
-//          (MyAlgorithms::all_of(
-//              D.begin(), D.end(),
-//              bind(&DeviceInfo::containsCommandData, this, _1)))) {
-//        // add the query sysex to the sysex buffer
-//        addQuerySysex(*q);
-//
-//        // add query to the attempted queries
-//        attemptedQueries.insert(*q);
-//
-//        // remove query from list of pending commands and increment pointer
-//        q = currentQuery.erase(q);
-//      }
-//      // dependencies not met
-//      else {
-//        // foreach dependencies
-//        for (auto d : D) {
-//          // if dependancy isn't in current query and
-//          // dependancies is not alrealy being queried and
-//          // dependancies has not been attempted
-//          if ((!MyAlgorithms::contains(currentQuery, d)) &&
-//              (!containsCommandData(d)) &&
-//              (!MyAlgorithms::contains(attemptedQueries, d))) {
-//            // add dependancy to current query
-//            currentQuery.push_back(d);
-//          }
-//        }
-//
-//        // increment q iterator
-//        ++q;
-//      }
-//    }
-//
-//    // lock the pending sysex message queue lock
-//    [sendLock lock];
-//
-//    // determine if the pending sysex message queue is empty
-//    isPendingSysexMessage = !sysexMessages.empty();
-//
-//    // unlock the pending sysex message queue lock
-//    [sendLock unlock];
-//
-//    // if there are not pending sysex messages
-//    if (!isPendingSysexMessage) {
-//
-//      // check to make sure that the current query is complete
-//      if (!currentQuery.empty()) {
-//        // the current query isn't complete. There is an error
-//
-//        //NSLog(@"Current query isn't complete"
-//               "but there are no pending messages.");
-//        fprintf(stderr, "QUERY - [ ");
-//        for (const auto& cmd : currentQuery) fprintf(stderr, "%04X ", cmd);
-//        fprintf(stderr, "]\n");
-//
-//
-//        timeout();
-//      }
-//
-//      // check to see that a valid screen us waiting for a response
-//      if (queryScreen != Screen::UnknownScreen) {
-//
-//        // Remove doubles form list of queried items
-//        {
-//          // create a temporary set of commands
-//          set<CmdEnum> tempSet;
-//
-//          // copy all quried items to that set
-//          tempSet.insert(queriedItems.begin(), queriedItems.end());
-//
-//          // clear the list of quried items
-//          queriedItems.clear();
-//
-//          // add items for the temp set to the quried items
-//          queriedItems.insert(queriedItems.begin(), tempSet.begin(),
-//                              tempSet.end());
-//        }
-//
-//        // create an objective C object to store the results of the query
-//        NSDictionary* result;
-//
-//        // create an Objective C object to store the list of queried items
-//        {
-//          NSMutableArray* const nsQuery = [NSMutableArray array];
-//
-//          // loop through all queried items
-//          for (auto iter = queriedItems.begin(); iter != queriedItems.end();
-//               ++iter) {
-//            // add an Object C object containing the queried object to the
-//            // ObjC list of queried objects
-//            [nsQuery addObject:[NSNumber numberWithInt:*iter]];
-//          }
-//
-//          // create a dictionary of results
-//          result = @{
-//            // add the calling screen to the result
-//            @"screen" : @((int)queryScreen),
-//
-//            // add the results to the results
-//            @"query" : nsQuery
-//          };
-//        }
-//
-//        // post the query complete notification on the main thread
-//        runOnMain(^{
-//            [[NSNotificationCenter defaultCenter]
-//                postNotificationName:@"queryCompleted"
-//                              object:nil
-//                            userInfo:result];
-//        });
-//
-//        // set the screen to the unknown screen (this prevents duplicate
-//        // calls to query completed)
-//        queryScreen = Screen::UnknownScreen;
-//      }
-//
-//      // if there are pending queries then deal with them now
-//      if (!pendingQueries.empty()) {
-//        // get next query
-//        auto nextQuery = pendingQueries.front();
-//
-//        // remove the next query from the pending list
-//        pendingQueries.pop();
-//
-//        // set the query Screen
-//        queryScreen = boost::get<0>(nextQuery);
-//
-//        // set the currentQuery to the next query
-//        currentQuery = boost::get<1>(nextQuery);
-//
-//        // clear the list of queried items
-//        queriedItems.clear();
-//
-//        // start the next query
-//        isPendingSysexMessage = sendNextSysex();
-//      }
-//    }
-//    // there are pending sysex messages from the new query
-//    else {
-//      // there is something to query, recursivley call this method
-//      isPendingSysexMessage = sendNextSysex();
-//    }
-//  }
-//
-//  return isPendingSysexMessage;
-//}
 
 bool DeviceInfo::commonHandleCode(DeviceID _deviceID, Word _transID) {
   if ((deviceID.serialNumber() == SerialNumber()) ||
@@ -914,15 +613,21 @@ bool DeviceInfo::commonHandleCode(DeviceID _deviceID, Word _transID) {
 
 void DeviceInfo::handleCommandData(CmdEnum _command, DeviceID _deviceID,
                                    Word _transID, commandData_t _commandData) {
-  if (commonHandleCode(_deviceID, _transID)) {
+  if (commonHandleCode(_deviceID, _transID))
+  {
     storedCommandData[_commandData.key()] = _commandData;
-    //NSLog(@"lock50");
-    [queriedItemsLock lock];
     queriedItems.push_back(_command);
-    [queriedItemsLock unlock];
-    //NSLog(@"lock51");
 
     sendNextSysex();
+
+    --mUnansweredMessageCount;
+    NSLog(@"Unanswered %i", mUnansweredMessageCount);
+
+    bool isPendingSysexMessage = !mSysexMessages.empty();
+    if (mUnansweredMessageCount == 0 && !isPendingSysexMessage)
+    {
+      notifyScreen();
+    }
   }
 }
 
@@ -943,14 +648,19 @@ void DeviceInfo::handleUSBHostMIDIDeviceDetailData(CmdEnum _command,
          ((foundUSBDetails.numMIDIIn() > 0) ||
           (foundUSBDetails.numMIDIOut() > 0)))) {
            usbHostMIDIDeviceDetails.push_back(foundUSBDetails);
-           //NSLog(@"lock52");
-           [queriedItemsLock lock];
            queriedItems.push_back(_command);
-           [queriedItemsLock unlock];
-           //NSLog(@"lock53");
     }
 
     sendNextSysex();
+
+    --mUnansweredMessageCount;
+    NSLog(@"Unanswered %i", mUnansweredMessageCount);
+
+    bool isPendingSysexMessage = !mSysexMessages.empty();
+    if (mUnansweredMessageCount == 0 && !isPendingSysexMessage)
+    {
+      notifyScreen();
+    }
   }
 }
 
@@ -958,12 +668,8 @@ void DeviceInfo::handleACKData(CmdEnum, DeviceID, Word, commandData_t) {
   bool sysexEmpty;
   size_t messageLength;
 
-  //NSLog(@"lock54");
-  [sendLock lock];
-  sysexEmpty = sysexMessages.empty();
-  messageLength = sysexMessages.size();
-  [sendLock unlock];
-  //NSLog(@"lock55");
+  sysexEmpty = mSysexMessages.empty();
+  messageLength = mSysexMessages.size();
 
   if (!sysexEmpty) {
     runOnMain(^{
@@ -972,7 +678,7 @@ void DeviceInfo::handleACKData(CmdEnum, DeviceID, Word, commandData_t) {
                           object:nil
                         userInfo:@{
                                    @"progress" :
-                                   @((int)(maxWriteItems - messageLength))
+                                   @((int)(mMaxWriteItems - messageLength))
                                  }];
     });
 
@@ -1704,18 +1410,13 @@ void DeviceInfo::writeAll() {
                         cmdData.second));
   }
 
-  //NSLog(@"lock58");
-  [sendLock lock];
-  maxWriteItems = sysexMessages.size();
-  [sendLock unlock];
-  //NSLog(@"lock59");
-
+  mMaxWriteItems = mSysexMessages.size();
 
   runOnMain(^{
       [[NSNotificationCenter defaultCenter]
           postNotificationName:@"writingStarted"
                         object:nil
-                      userInfo:@{@"maxWriteItems" : @(maxWriteItems)}];
+                      userInfo:@{@"maxWriteItems" : @(mMaxWriteItems)}];
   });
 
   sendNextSysex();
