@@ -1197,7 +1197,14 @@ using namespace GeneSysLib;
   } else if (pid == DevicePID::iConnect4Plus) {
     supportedExtensionRegEx = @"\\.icm4$";
     extension = @".icm4";
+  } else if (pid == DevicePID::iConnect2Audio) {
+    supportedExtensionRegEx = @"\\.ica2$";
+    extension = @".ica2";
+  } else if (pid == DevicePID::iConnect4Audio) {
+    supportedExtensionRegEx = @"\\.ica4$";
+    extension = @".ica4";
   }
+
 
   if ((supportedExtensionRegEx) &&
       ([path rangeOfString:supportedExtensionRegEx
