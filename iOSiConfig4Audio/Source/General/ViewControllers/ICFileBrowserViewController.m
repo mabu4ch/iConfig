@@ -69,6 +69,14 @@ using namespace GeneSysLib;
       case DevicePID::iConnect4Plus:
         supportedExtension = @"\\.icm4$";
         break;
+        
+      case DevicePID::iConnect2Audio:
+        supportedExtension = @"\\.ica2$";
+        break;
+
+      case DevicePID::iConnect4Audio:
+        supportedExtension = @"\\.ica4$";
+        break;
     }
   }
 
