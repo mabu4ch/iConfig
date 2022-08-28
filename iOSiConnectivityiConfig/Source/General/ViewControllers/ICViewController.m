@@ -1371,6 +1371,33 @@ using namespace GeneSysLib;
   } else if (pid == DevicePID::iConnect4Plus) {
     supportedExtensionRegEx = @"\\.icm4$";
     extension = @".icm4";
+  } else if (pid == DevicePID::iConnect2Audio) {
+    supportedExtensionRegEx = @"\\.ica2$";
+    extension = @".ica2";
+  } else if (pid == DevicePID::iConnect4Audio) {
+    supportedExtensionRegEx = @"\\.ica4$";
+    extension = @".ica4";
+  } else if (pid == DevicePID::MIO) {
+    supportedExtensionRegEx = @"\\.mio$";
+    extension = @".mio";
+  } else if (pid == DevicePID::MIO2) {
+    supportedExtensionRegEx = @"\\.mio2$";
+    extension = @".mio2";
+  } else if (pid == DevicePID::MIO4) {
+    supportedExtensionRegEx = @"\\.mio4$";
+    extension = @".mio4";
+  } else if (pid == DevicePID::MIO10) {
+    supportedExtensionRegEx = @"\\.mio10$";
+    extension = @".mio10";
+  } else if (pid == DevicePID::ConnectAudio24) {
+    supportedExtensionRegEx = @"\\.con24$";
+    extension = @".con24";
+  } else if (pid == DevicePID::PlayAudio12) {
+    supportedExtensionRegEx = @"\\.pla12$";
+    extension = @".pla12";
+  } else if (pid == DevicePID::iConnect1) {
+    supportedExtensionRegEx = @"\\.ic1$";
+    extension = @".ic1";
   }
 
   if ((supportedExtensionRegEx) &&
