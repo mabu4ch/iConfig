@@ -69,6 +69,42 @@ using namespace GeneSysLib;
       case DevicePID::iConnect4Plus:
         supportedExtension = @"\\.icm4$";
         break;
+        
+      case DevicePID::iConnect2Audio:
+        supportedExtension = @"\\.ica2$";
+        break;
+
+      case DevicePID::iConnect4Audio:
+        supportedExtension = @"\\.ica4$";
+        break;
+
+      case DevicePID::MIO:
+        supportedExtension = @"\\.mio$";
+        break;
+
+      case DevicePID::MIO2:
+        supportedExtension = @"\\.mio2$";
+        break;
+
+      case DevicePID::MIO4:
+        supportedExtension = @"\\.mio4$";
+        break;
+
+      case DevicePID::MIO10:
+        supportedExtension = @"\\.mio10$";
+        break;
+        
+      case DevicePID::ConnectAudio24:
+        supportedExtension = @"\\.con24$";
+        break;
+        
+      case DevicePID::PlayAudio12:
+        supportedExtension = @"\\.pla12$";
+        break;
+        
+      case DevicePID::iConnect1:
+        supportedExtension = @"\\.ic1$";
+        break;
     }
   }
 
