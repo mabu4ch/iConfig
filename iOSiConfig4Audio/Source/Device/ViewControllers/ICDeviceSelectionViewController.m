@@ -139,7 +139,10 @@ using namespace GeneSysLib;
       case DevicePID::iConnect4Audio:
         image = [UIImage imageNamed:@"block_ica4plusdevice.png"];
         break;
-
+        
+      case DevicePID::Audio4c:
+        image = [UIImage imageNamed:@"block_ica4plusdevice.png"];
+        break;
       default:
         break;
     }
@@ -162,6 +165,7 @@ using namespace GeneSysLib;
   if (selectedDevice) {
     if ( selectedDevice->getDeviceID().pid() == DevicePID::iConnect2Audio ||
         selectedDevice->getDeviceID().pid() == DevicePID::iConnect4Audio ||
+        selectedDevice->getDeviceID().pid() == DevicePID::Audio4c ||
         selectedDevice->getDeviceID().pid() == DevicePID::iConnect4Plus ||
         selectedDevice->getDeviceID().pid() == DevicePID::iConnect2Plus) {
         const auto &transID = selectedDevice->getTransID();

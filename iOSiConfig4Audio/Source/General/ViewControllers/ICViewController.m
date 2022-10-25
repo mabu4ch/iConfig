@@ -924,6 +924,11 @@ using namespace GeneSysLib;
           urlString = [NSString stringWithFormat:@"https://support.iconnectivity.com/support/iconfig/0008/iOS/"];
 
       }
+      else if (deviceID.pid() == GeneSysLib::DevicePID::Audio4c )
+      {
+          urlString = [NSString stringWithFormat:@"https://www.iconnectivity.com/s/iConnectivity-AUDIO4c-User-Guide.pdf"];
+
+      }
       NSURL *const url = [NSURL URLWithString:urlString];
 
       NSURLRequest *const request = [NSURLRequest requestWithURL:url];
@@ -1203,6 +1208,9 @@ using namespace GeneSysLib;
   } else if (pid == DevicePID::iConnect4Audio) {
     supportedExtensionRegEx = @"\\.ica4$";
     extension = @".ica4";
+  } else if (pid == DevicePID::Audio4c) {
+    supportedExtensionRegEx = @"\\.a4c$";
+    extension = @".a4c";
   } else if (pid == DevicePID::MIO) {
     supportedExtensionRegEx = @"\\.mio$";
     extension = @".mio";

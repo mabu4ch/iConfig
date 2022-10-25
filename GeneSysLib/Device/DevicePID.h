@@ -22,7 +22,7 @@ typedef enum Enum {
   MIO2 = 0x0009,
   MIO4 = 10,
   PlayAudio12 = 11,
-  //xxx = 12,
+  Audio4c = 12,
   ConnectAudio24 = 13
 } Enum;
 }  // namespace DevicePID

@@ -77,6 +77,10 @@ using namespace GeneSysLib;
       case DevicePID::iConnect4Audio:
         supportedExtension = @"\\.ica4$";
         break;
+        
+      case DevicePID::Audio4c:
+        supportedExtension = @"\\.a4c$";
+        break;
 
       case DevicePID::MIO:
         supportedExtension = @"\\.mio$";
