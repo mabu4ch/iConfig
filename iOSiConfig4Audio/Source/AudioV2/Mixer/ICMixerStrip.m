@@ -1745,7 +1745,7 @@ using namespace GeneSysLib;
   highImpedenceButton.translatesAutoresizingMaskIntoConstraints = NO;
   [highImpedenceButton.titleLabel setFont:[UIFont boldSystemFontOfSize:8]];
 
-  if ( self->device->getDeviceID().pid() == DevicePID::iConnect4Audio ) {
+  if ( self->device->getDeviceID().pid() == DevicePID::iConnect4Audio || self->device->getDeviceID().pid() == DevicePID::Audio4c ) {
     [highImpedenceButton setTitleColor:[UIColor grayColor] forState:UIControlStateNormal];
   }
 
@@ -1779,7 +1779,7 @@ using namespace GeneSysLib;
 }
 
 -(void) updateHighImpedenceButton {
-  if ( self->device->getDeviceID().pid() == DevicePID::iConnect4Audio )
+  if ( self->device->getDeviceID().pid() == DevicePID::iConnect4Audio || self->device->getDeviceID().pid() == DevicePID::Audio4c )
     return;
 
   if (analogInterface->highImpedance(inputNumber)) {
@@ -1795,7 +1795,7 @@ using namespace GeneSysLib;
 - (void) highImpedencePressed {
   highImpedenceButton.selected = !highImpedenceButton.selected;
 
-  if ( self->device->getDeviceID().pid() == DevicePID::iConnect4Audio )
+  if ( self->device->getDeviceID().pid() == DevicePID::iConnect4Audio || self->device->getDeviceID().pid() == DevicePID::Audio4c )
     return;
 
   if (mixerType == in) {
