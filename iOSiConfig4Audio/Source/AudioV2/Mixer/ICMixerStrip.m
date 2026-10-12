@@ -94,6 +94,10 @@ using namespace GeneSysLib;
   return self->stereoLinked;
 }
 
+- (bool) shouldDisplayPanControl {
+  return self->stereoLinked || (!self->isAudioStrip && self->mixerType == in);
+}
+
 - (bool) isStereoLinkable {
   if ((self->mixerType == out) && (!self->isAudioStrip)){
     return false;
@@ -174,7 +178,7 @@ using namespace GeneSysLib;
 }
 
 -(void) updateAll {
-  if (stereoLinked) {
+  if ([self shouldDisplayPanControl]) {
     [self updatePanDials];
     [self updatePanLabels];
   }
@@ -392,7 +396,7 @@ using namespace GeneSysLib;
   panSoloContainer = [UIView new];
   panSoloContainer.translatesAutoresizingMaskIntoConstraints = NO;
 
-  if (stereoLinked) {
+  if ([self shouldDisplayPanControl]) {
     panDial = [[IOSKnobControl alloc] initWithFrame:CGRectMake(0,0,60,60) imageNamed:@"blue-knob"];
 
     panDial.translatesAutoresizingMaskIntoConstraints = NO;
@@ -614,7 +618,7 @@ using namespace GeneSysLib;
   panSoloLabelContainer = [UIView new];
   panSoloLabelContainer.translatesAutoresizingMaskIntoConstraints = NO;
 
-  if (stereoLinked) {
+  if ([self shouldDisplayPanControl]) {
     panLabel = [[UIButton alloc] init];
     panLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [panLabel setTitle:@"C" forState:UIControlStateNormal];
